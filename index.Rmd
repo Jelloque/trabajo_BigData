@@ -1,0 +1,1351 @@
+---
+title: "El tour de Francia en datos"
+author: "Jesus Lloret Quero (jelloque@alumni.uv.es). \n\n Universitat de València"
+date: "Diciembre de 2021 (actualizado el `r format(Sys.time(), '%d-%m-%Y')`)"
+output:
+  html_document: 
+    css: "./assets/estilo_2.css"
+    self_contained: true
+    code_download: true
+    code_folding: "hide"
+    theme: dark
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+    df_print: kable
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages-setup, include = FALSE}
+library(readr)
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+library(ggforce)
+library(rio)
+library(ggrepel)
+library(gt)
+library(png)
+library(grid)
+library(countrycode)
+library(ggflags)
+library(hrbrthemes)
+library(DT)
+
+
+```
+
+
+
+
+```{r chunk-setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, 
+                      #results = "hold",
+                      cache = FALSE, cache.path = "/caches/", comment = "#>",
+                      #fig.width = 7, #fig.height= 7,   
+                      #out.width = 7, out.height = 7,
+                      collapse = TRUE,  fig.show = "hold",
+                      fig.asp = 0.628, out.width = "95%", fig.align = "center")
+knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
+```
+
+```{r options-setup, include = FALSE}
+options(scipen = 999) #- para quitar la notación científica
+options("yaml.eval.expr" = TRUE) 
+```
+
+
+```{r klippy, echo = FALSE}
+klippy::klippy(position = c("top", "right")) #- remotes::install_github("rlesur/klippy")
+```
+
+<div style="text-align: justify"><div/>
+
+<hr class="linea-black">
+
+<!-- El párrafo de abajo has de dejarlo casi igual, solo HAS de SUSTITUIR "perezp44" por tu usuario de Github-->
+Trabajo elaborado para la asignatura "Programación y manejo de datos en la era del Big Data" de la Universitat de València durante el curso 2021-2022. El repo del trabajo está [aquí](https://github.com/Jelloque/trabajo_BigData){target="_blank"}. 
+
+<!-- El párrafo de abajo has de dejarlo exactamente igual, NO has de cambiar nada-->
+
+La página web de la asignatura y los trabajos de mis compañeros pueden verse [aquí](https://perezp44.github.io/intro-ds-21-22-web/07-trabajos.html){target="_blank"}.
+
+<hr class="linea-red">
+
+
+## 1. Introducción
+
+El tour de Francia es el evento anual más importante del ciclismo y en gran medida también del deporte internacional, este reúne a los mejores ciclistas del pelotón en la que se verán las caras durante 21 Etapas por las carreteras de Francia, recorriendo el país desde la Bretaña Francesa, pasando por los emblemáticos Pirineos y Alpes hasta llegar a los famosos Campos Elíseos de Paris, donde solo un corredor podrá alcanzar la gloria y cruzar la línea de meta vistiendo el Maillot amarillo de líder. Muchos han sido los que han fracasado en su intento por conseguirlo, pero es que este espacio está reservado para muy pocas leyendas tales como:  Gino Bartali, Fausto Coppi, Jaques Anquetil, Eddy Merckx, Miguel Indurain, etc.
+
+<br>
+
+<center><img src="imagenes/logo.png" width = "400px" /></center>
+
+<br>
+
+El funcionamiento de la carrera es bastante curioso, esta se divide en 21 etapas, que pueden ser llanas, de contrarreloj, de montaña, entre otros tipos. En cada etapa abra un ganador que recibirá el premio por ganar ese día, pero realmente el ganador del Tour  es quien ha conseguido finalizar las 21 etapas con el menor tiempo posible, lo que se conoce como la clasificación general, cada corredor tendrá un tiempo que ira deteniendo cada vez que cruce la línea de meta de una etapa y se le irán sumando los tiempos día tras día, por lo tanto puede darse el caso que alguien gane la clasificación general sin haber ganado una etapa. 
+La clasificación general es la más importante pero no la única, existen otro tipo de clasificaciones como: la clasificación por puntos, la clasificación de puertos de montaña y la clasificación de los menores de 25 años, cada una de ellas otorga el derecho a portar un maillot especial.
+
+
+**Trabajo:** La idea de este proyecto, por una parte, es analizar cómo ha ido evolucionando la carrera desde sus inicios hasta la actualidad, aspectos relevantes como: distancias, velocidades, diferencias entre corredores, países participantes, etc. También destacar aquellos corredores que más han triunfado pasando desde vencedores de la general hasta ganadores de etapa, en esta segunda parte del trabajo no se trata de volcar los resultados obtenidos en conclusiones sino más bien dar al lector una visión sobre aquellos corredores que más han triunfador en el Tour.
+
+<br>
+
+## 2. Motivaciones
+
+Personalmente he de decir que me declaro un amante incondicional del ciclismo por lo tanto he querido plasmar esta pasión en el trabajo individual, creo que el conocer mucho del mundillo me ayudara por una parte a entender mejor la información obtenida así como expresarla, y por otra parte me resultara mucho más ameno a la hora de estar trabajando.
+
+## 3. Datos utilizados{.tabset .tabset-pills}
+
+
+### Comentarios
+
+Para la realización del trabajo he utilizado los dataframes que se utilizaron en el tidytuesday del 2020-04-07 dedicado al Tour de Francia, el origen de los datos proviene del usuario **alastairrushworth** y consta de 3 dataframes que contienen información desde los ganadores del tour, de etapas, edades, nacionalidades, pesos, edad, etc. La verdad que los datos están muy bien cuidados y refinados, además al tratarse de un evento del tidytuesday me he podido ayudar e inspirar en algunas de las gráficas realizadas por genios como: André Waage, Ariane Aumaitre, Jake Lawlor, entre otros. 
+
+<br>
+
+Mencionar que en la mayoría de observaciones solo se tienen datos hasta 2017, está bastante actualizada, pero estamos en 2021 por lo tanto a lo largo del trabajo realizare algún inciso con tal de actualizar la información, pero en líneas generales toda la información es hasta el 2017.
+Por último, la gran mayoría conocemos el caso de dopaje de Lance Armstrong es por eso que he considerado oportuno eliminar su nombre en aquellas graficas de títulos individuales.
+
+
+
+
+-----------------------
+
+<br>
+
+### Datos
+
+```{r echo=TRUE, warning=FALSE }
+
+# Esta lineas de codigo han sido necessarias para poder descargar los dataframe, una vez cargados han sido exportados a un fichero csv por lo tanto estas lineas estan comentadas porque no es necesario ejecutarlas cada vez.
+
+#tdf_winners <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-04-07/tdf_winners.csv')
+
+# Install via devtools::install_github("thebioengineer/tidytuesdayR")
+
+#tuesdata <- tidytuesdayR::tt_load('2020-04-07')
+#tuesdata <- tidytuesdayR::tt_load(2020, week = 15)
+
+
+#tdf_winners <- tuesdata$tdf_winners
+#stage_data <- tuesdata$stage_data
+#tdf_stages <- tuesdata$tdf_stages
+
+#str(tdf_winners)
+#str(stage_data)
+#str(tdf_stages)
+
+#tdf_winners %>% 
+  #write_csv(here::here("datos", "tdf_winners.csv"))
+
+#stage_data %>% 
+  #write_csv(here::here("datos", "stage_data.csv"))
+
+#tdf_stages %>% 
+  #write_csv(here::here("datos","tdf_stages.csv"))
+
+
+stage_data <- read_csv("datos/stage_data.csv")
+tdf_winners <- read_csv("datos/tdf_winners.csv")
+tdf_stages <- read_excel("datos/tdf_stages.xlsx")
+
+```
+
+### Paquetes
+
+
+- library(readr)
+- library(readxl)
+- library(tidyverse)
+- library(ggplot2)
+- library(lubridate)
+- library(ggforce)
+- library(rio)
+- library(ggrepel)
+- library(gt)
+- library(png)
+- library(grid)
+- library(countrycode)
+- library(ggflags)
+- library(hrbrthemes)
+- library(DT)
+
+
+
+
+-----------------------
+
+<br>
+
+
+
+## 4. DESARROLLO DEL TOUR
+
+En este primer apartado la idea es analizar cómo ha ido desarrollándose la carrera, desde aquellos desconocidos héroes que decidirían cruzar aquellos puertos de los Alpes, encima de su bicicleta, la mayoría sin asfaltar, prácticamente eran carreteras de barro, hasta la época del ciclismo de épica con Bartali y Coppi, pasando por la década de los 70 con la gran dominación del caníbal Eddy Merckx, los noventa como referente Induráin, hasta la actualidad.
+Los resultados obtenidos a través de la graficas arrojan una **tendencia** clara: La carrera cada vez se ha **profesionalizado** e **internacionalizado** más.
+
+Vamos a comentar las gráficas apartado por apartado.
+
+
+
+### 4.1. Cada vez más rápido
+
+#### 4.1.1. Evolución de la velocidad media
+
+```{r}
+
+#Grafica p1 velocidad media
+
+velocidad_media <- tdf_winners 
+
+velocidad_media <- tdf_winners %>%
+  mutate(year= year(start_date)) %>%
+  mutate(velocidad = distance / time_overall)
+
+                             
+p1 <- ggplot(velocidad_media, aes(year, velocidad)) +
+  geom_point(color =  "black") +
+  geom_smooth(span = 0.2, color = "black" , fill= "#ede657") + theme(panel.grid.major = element_line(colour = "white"),
+    panel.background = element_rect(fill = NA)) +labs(x = NULL, y = "velocidad en Km/H") +
+  geom_label_repel(data = velocidad_media %>% sample_n(20), 
+                   aes(label = winner_name), size = 2.3,  
+                   nudge_y = -9, na.rm = TRUE,
+                   segment.alpha = 0.2)
+ 
+p1
+```
+
+<br>
+
+Como podemos observar la tendencia es muy clara la velocidad media ha ido **aumentado** como norma general edición tras edición, esto es debido en parte a 3 factores:
+
+
+- Mejoras de los componentes.
+- Mejor estado de las carreteras.
+- Profesionalización de la carrera.
+
+
+A destacar el periodo entre los finales de los 90 y la entrada del nuevo siglo, donde la carrera se vio manchada por numerosos **escándalos de dopping**, esto explicaría ese fuerte aumento de la velocidad media y su posterior caída una vez erradicado el problema.
+
+
+<br>
+
+### 4.2. Recorridos cada vez más cortos
+
+#### 4.2.1. Evolución de las distancias
+
+```{r}
+
+#Grafica p3 evolucion distancias
+
+distancia_ediciones <- tdf_winners %>%
+  tidyr::drop_na(distance) %>%
+  mutate(year= year(start_date))
+
+
+p3 <- ggplot(distancia_ediciones, aes(year, distance)) +
+  
+  geom_line(color="#ede657") +
+  geom_area( fill="#ede657") +
+  geom_smooth(span = 0.2, color = "#ede657", alpha = 0.2) +
+  
+  scale_y_continuous( 
+                      breaks = seq(0, 6000, 1000),
+                      limits = c(0,6000)) +
+  
+  annotate(
+  geom = "curve", x = 1926, y = 5800, xend = 1945, yend = 6000, curvature = .3, arrow = arrow(length = unit(2, "mm"))) +
+  
+  annotate(geom = "text", x = 1946, y = 6000, label = "En 1926 fue la edición mas larga con un total de 5745 km", hjust = "left") + 
+  theme(panel.background = element_rect(fill = NA)) + 
+  labs(x = NULL, y = "Distancia en km")
+  
+
+p3   
+```
+
+<br>
+
+De aquellos recorridos de infarto de etapas que duraban días enteros se ha ido recortando el recorrido de cada etapa y con ello el kilometraje total de cada edición como muestra la tendencia, hasta la actualidad donde parece que la tendencia se ha estabilizado con los recorridos actuales más cortos y explosivos.
+
+<br>
+
+El año 1926 fue la edición más larga de todas con un total de 5745 km, aquella edición se dividió en 15 etapas lo que nos da una media de 383 km, me tiemblan las piernas solo de pensar en hacer esa cantidad de kilómetros durante 15 días seguidos.
+
+
+<br>
+
+### 4.3. Establecimiento de las 21 Etapas{.tabset .tabset-pills}
+
+#### Tipos de etapa
+
+##### 4.3.1. Evolución del numero y tipos de etapa.
+
+
+```{r}
+
+
+#Grafica p4 Tipos de etapa
+
+tipos_etapa <- tdf_stages %>%
+  mutate(year= year(Date)) %>%
+  group_by(Type,year) %>%
+  summarise(total_categoria=n())
+
+  
+p4 <- ggplot(tipos_etapa, aes(year, total_categoria, fill = Type)) +
+  geom_col() + 
+  coord_flip() +
+  scale_fill_viridis_d() +
+  labs(x = NULL) + theme(panel.background = element_rect(fill = NA),
+    legend.position = "right", legend.direction = "vertical") +labs(y = "Numero de etapas", fill = "Tipo de Etapa")
+  
+p4 
+```
+
+
+<br>
+
+Como hemos mencionado al principio en la introducción el número de etapas en las que se divide la competición es en 21, pero como vemos en el grafico no siempre ha sido así, podemos diferenciar 3 etapas: inicios hasta los años 50, de los 50 los hasta los 90 y de los 90 a la actualidad.
+
+<br>
+
+La primera etapa se caracteriza por una primera fase con muy pocas etapas y una segunda fase con un incremento considerable, además esta etapa se caracteriza por los suspensiones del tour durante las dos guerras mundial de ahí los espacios en blanco.La segunda parece un poco caótica cada edición tenía un numero distinto de etapas y no será hasta llegar a los 90 donde se oficialice y acuerde las 21 etapas por edición, una vez más reafirmado la tendencia de la profesionalización.
+
+
+
+-----------------------
+
+<br>
+
+#### Tabla 
+
+```{r}
+
+#tabla etapas
+
+etapas_espanol <- tdf_stages %>%
+  rename(etapa = "Stage" ,
+         fecha = "Date" ,
+         distancia = "Distance" ,
+         origen = "Origin" ,
+         final = "Destination" ,
+         tipo = "Type" ,
+         ganador = "Winner" ,
+         nacionalidad = "Winner_Country" ,) %>%
+  select(etapa, fecha, distancia, origen, final, tipo, ganador, nacionalidad)
+
+datatable(etapas_espanol, class ="stripe hover compact row-border" , filter = 'top')
+
+```
+
+
+-----------------------
+
+<br>
+
+### 4.3. Hacia la internalización del Tour
+
+#### 4.3.1. Nacionalidades distintas en ganar una etapa por edición
+
+```{r}
+
+
+#Grafica p5 nacionalidades en ganar etapa por edicion
+
+nacionalidades <- tdf_stages %>%
+  mutate(year = year(Date)) %>%
+  group_by(year, Winner_Country) %>%
+  summarise(total= n_distinct(Winner_Country)) %>%
+  group_by(year) %>%
+  summarise(total_nacionalidades= n()) 
+  
+
+
+p5 <- ggplot(nacionalidades, aes(year, total_nacionalidades)) +
+  geom_col(aes(fill=total_nacionalidades)) +
+  scale_fill_continuous(low="#9e9e9e",high="#282828") + 
+  geom_smooth(color = "#ede657", alpha = 0.3) +
+  scale_y_continuous(
+    breaks = seq(0, 15, 5),
+    limits = c(0, 15)) +
+  annotate("rect",
+           xmin = 1900,
+           xmax = 1950,
+           ymin = 0,
+           ymax = Inf,
+           alpha = 0.3,
+           fill = "pink") +
+  annotate("rect",
+           xmin = 1950,
+           xmax = 1985,
+           ymin = 0,
+           ymax = Inf,
+           alpha = 0.3,
+           fill = "#b2ebf2") +
+  annotate("rect",
+           xmin = 1985,
+           xmax = 2018,
+           ymin = 0,
+           ymax = Inf,
+           alpha = 0.3,
+           fill = "#a5d6a7") +
+  theme(axis.ticks = element_line(linetype = "blank"),
+        axis.text.y = element_text(colour = "white"),
+        panel.background = element_rect(fill = NA),
+        legend.position = "none") +labs(x = NULL, y = NULL, fill = NULL)+
+  theme(axis.ticks = element_line(linetype = "solid"),
+    axis.text.y = element_text(colour = "black"))
+
+p5
+
+
+
+```
+<br>
+
+En esta grafica podemos observar cuantas nacionalidades distintas fueron capaces de ganar una o más etapas en cada edición, una vez más la tendencia es muy clara, el tour se ha ido internalizando, ha pasado de ser una carrera reservada para franceses, belgas, italianos hasta los años 50, a dar pasar a una competición más internacional primero con fuerte dominio europeo para en los 80 y 90 abrir sus puertas a todo el mundo. Una vez más las 3 etapas mencionada anteriormente se ven reflejadas claramente en el gráfico. 
+
+<br>
+
+
+### 4.5. Mayor rivalidad entre ciclistas
+
+#### 4.5.1. Ventaja del ganador respecto del subcampeón
+
+
+```{r}
+
+
+#Grafica p2 Diferencia entre el ganador y subcampeon
+
+tiempo_vencedor <- tdf_winners %>%
+  tidyr::drop_na(time_margin) %>%
+  mutate(year= year(start_date))
+
+  
+p2 <-  ggplot(tiempo_vencedor, aes(x=year,y=time_margin)) +
+    geom_point() +
+    geom_smooth( formula = y~x,method="loess",
+                 color="grey30",fill="#ede657")  +
+    scale_y_continuous(breaks = c(0,0.16,1,2,3),
+                       labels = c(0,"10 Min","1 Hr","2 Hrs","3 Hrs"),
+                       name="Venteja del ganador")+
+    scale_x_continuous(name=NULL) +
+    coord_cartesian(ylim=c(-.1,3.1),
+                    xlim=c(1899,2020),expand=F) + 
+  theme(panel.background = element_rect(fill = NA))
+
+p2
+
+```
+<br>
+
+Como consecuencia de los dos fenómenos mencionados anteriormente la profesionalización e internalización, la ventaja entre el ganador de la clasificación general y el subcampeón se ha ido reduciendo fuertemente hasta llegar a los tiempos del ciclismo actual donde el vencedor no suele sacar más de 3 o 4 minutos al segundo clasificad, como podemos observar en la gráfica. 
+
+<br>
+
+
+
+## 5. LOS CICLISTAS
+
+Llegados a este punto y una vez analizado el desarrollo histórico del Tour vamos a enseñar quienes han sido y son los mejores ciclistas que han pasado por las carreteras de Francia, desde los que más clasificaciones generales han ganado hasta los que más etapas se han llevado y también algunos datos curiosos como nacionalidades, edades, etc.
+
+<br>
+
+### 5.1. Ciclistas más laureados
+
+```{r}
+#Tabla 1 corredores mas laureados
+#Realmente esta tabla no tiene mucho merito porque ha sido reproducir literalmente el codigo de un usuario por internet pero me ha parecido tan bonita y elegante que me he visto casi forzado a ponerla...
+
+most_wins<-tdf_winners%>%
+  # Lo primero es borrar a Armstrong por tramposo
+  filter(winner_name!="Lance Armstrong")%>%
+  mutate(winner_name=case_when(
+    winner_name=='Miguel Induráin'~'Miguel Indurain',
+    TRUE~winner_name
+  ))%>%
+  # Crear la variable para contar titulos
+  mutate(ct=1)%>%
+  group_by(winner_name)%>%
+  summarize(
+    # Contamos Titulos
+    Titulos=sum(ct),
+    # Añadimos nacionalidad
+    Nacionalidad=nationality[1],
+    # Añadimos el apodo
+    Nickname=nickname[1])%>%
+  filter(Titulos>2)%>%
+  arrange(-Titulos)
+
+# Data preparation:
+most_wins<-most_wins%>%
+  #  ordenando las columna
+  select(
+    Corredor=winner_name,
+    Nickname,Nacionalidad,Titulos)%>%
+  # Limpiando los apodos
+  mutate(Nickname=case_when(
+    str_detect(Corredor,'Hinault')~'The Badger',
+    str_detect(Corredor,'Anquetil')~'Maître Jacques',
+    str_detect(Corredor,'Indurain')~'Miguelón',
+    str_detect(Corredor,'LeMond')~"The American",
+    str_detect(Corredor,'Bobet')~'Zonzon',
+    str_detect(Corredor,'Thys')~'The Basset Hound',
+    TRUE~Nickname
+  ))
+
+most_wins <- most_wins%>%
+  mutate(Nacionalidad = case_when(
+    str_detect(Nacionalidad,'France') ~ 'https://raw.githubusercontent.com/BjnNowak/TdF/main/fr.png',
+    str_detect(Nacionalidad,'Belgium') ~ 'https://raw.githubusercontent.com/BjnNowak/TdF/main/be.png',
+    str_detect(Nacionalidad,'Great Britain') ~ 'https://raw.githubusercontent.com/BjnNowak/TdF/main/uk.png',
+    str_detect(Nacionalidad,'Spain') ~ 'https://raw.githubusercontent.com/BjnNowak/TdF/main/sp.png',
+    str_detect(Nacionalidad,'United States') ~ 'https://raw.githubusercontent.com/BjnNowak/TdF/main/us.png'
+  ))
+
+tabla <- most_wins%>%
+  gt()%>%
+  tab_header(
+    title = "Corredores con más victorias en el Tour de Francia"
+  )%>%
+  gtExtras::gt_theme_nytimes()%>%
+  gtExtras::gt_merge_stack(col1 = Corredor, col2 = Nickname)%>%
+  # añadimos las banderas
+  gtExtras::gt_img_rows(columns = Nacionalidad, height = 20)
+
+tabla%>%
+  gtExtras::gt_fa_repeats(
+    column=Titulos,
+    palette = "orange",
+    name = "tshirt",
+    align='left'
+  )
+
+```
+
+<br>
+
+Este “salón de la fama” por decirlo de alguna manera está reservado a muy pocos, hablar del tour es hablar de aquellas grandes cronos de Bernard Hinault, es de aquellas tardes en el salón disfrutando con Induráin y sin duda de aquella dominación imparable de Eddy Merckx al que solo el difunto Luis Ocaña pudo plantarle cara al caníbal.
+El ultimo en entrar en este Ranking es Froome corredor que sigue en activo y quién sabe si será capaz de alcanzar los 5 tours, en la actualidad está complicado pero la esperanza es lo último que se pierde.
+Se puede llegar a quedar corto este ranking porque no aparecen nombres como el de Bartali, Contador, Perico, Poulidor, entre otros, pero es que el nivel ofrecido por estos 8 ciclistas ha sido muy alto.
+
+
+<br>
+
+#### 5.1.1. Consulta quien gano cada edición del Tour
+
+```{r}
+
+library(DT)
+
+tdf_espanol <- tdf_winners %>% 
+  rename(edicion = "edition" ,
+         inicio = "start_date" ,
+         ganador = "winner_name" ,
+         equipo = "winner_team" ,
+         distancia = "distance" ,
+         tiempo = "time_overall" ,
+         nacionalidad = "nationality" ,
+         `etapas ganadas` = "stage_wins" ,
+         `estapas de lider` = "stages_led") %>%
+  select(edicion, inicio, ganador, nacionalidad, equipo, distancia, `etapas ganadas`, `estapas de lider` )
+  
+  
+  
+  
+datatable(tdf_espanol, class ="stripe hover compact row-border" , filter = 'top')
+
+```
+
+
+### 5.2. Ciclistas destacados {.tabset .tabset-pills}
+
+
+#### Etapas 
+
+##### 5.2.1. Corredores que mas estapas han ganado del Tour
+
+```{r}
+
+
+#Maximos ganadores de etapas
+
+ganadores_etapa <- tdf_stages %>%
+  filter(Winner!="Lance Armstrong[n 1]")%>%
+  group_by(Winner) %>%
+  mutate(etapas_ganas = n()) %>%
+  ungroup() %>%
+  count(Winner, Type, etapas_ganas, sort = TRUE) %>%
+  filter(etapas_ganas>= 10)
+  
+  
+p6 <- ggplot(ganadores_etapa, aes(reorder(Winner, etapas_ganas), n, fill= Type)) +
+  geom_col() +
+  scale_fill_viridis_d() +
+  coord_flip() + theme(panel.background = element_rect(fill = NA),
+    legend.position = c(0.7, 0.4)) +labs(x = NULL, y = "Etapas totales", fill = "Tipo de etapa")
+
+
+p6
+
+```
+<br>
+
+Como podemos ver **Merckx** es máximo ganador de etapas, pero sería injusto no mencionar que en la última edición el sprinter Mark Cavendish que hasta entonces ocupaba la segunda posición con 30 victorias, ha conseguido igualar al caníbal con 34 victorias, gracias a las 4 etapas ganadas en 2021 y de no haber sido por un ajustado sprint y victoria final en los campos Elíseos de Wout van Aert, este hubiera conseguido superar a Merckx .
+
+<br>
+
+Como podemos ver los **sprinters** son los que suelen copar el ranking de corredores con mayores etapas, esto es debido a su facilidad por ganar etapas. Si estáis interesado en ver quienes han ganado más etapas de montaña o de contrarreloj podéis hacer clic en las pestañas de sus apartados.
+
+
+
+-----------------------
+
+<br>
+
+####  Etapas Llanas
+
+##### 5.2.2. Mejores sprinters del Tour
+
+```{r}
+#Mejores ciclistas sprinters 
+
+mejores_sprinters <- tdf_stages %>%
+  filter(Winner!="Lance Armstrong[n 1]")%>%
+  group_by(Winner) %>%
+  mutate(etapas_ganas = n()) %>%
+  ungroup() %>%
+  count(Winner, Type, etapas_ganas, sort = TRUE) %>%
+  filter(Type == "Etapa llana") %>%
+  filter(n>= 6)
+
+p7 <-  ggplot(mejores_sprinters, aes(reorder(Winner, n), n)) +
+  geom_col(fill = "#fde725") +
+  coord_flip() + theme(panel.background = element_rect(fill = NA)) +
+  labs(x = NULL, y = "Victorias ")
+  
+img1 <- readPNG("imagenes/tarmac.png")
+marca1 <- rasterGrob(img1, interpolate=F,height=unit(4, "cm"),hjust= -0.2, vjust=1.3)
+p7 + annotation_custom(marca1,xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf)
+```
+
+
+
+-----------------------
+
+<br>
+
+#### Etapas Montaña
+##### 5.2.3. Mejores escaladores del tour
+
+```{r}
+
+#Mejores ciclistas escaladores
+
+mejores_escaladores <- tdf_stages %>%
+  filter(Winner!="Lance Armstrong[n 1]")%>%
+  group_by(Winner) %>%
+  mutate(etapas_ganas = n()) %>%
+  ungroup() %>%
+  count(Winner, Type, etapas_ganas, sort = TRUE) %>%
+  filter(Type == "Etapa de montaña") %>%
+  filter(n>= 4)
+
+
+p8 <- ggplot(mejores_escaladores, aes(reorder(Winner, n), n)) +
+  geom_col(fill = "#8fd744") +
+  coord_flip() + theme(panel.background = element_rect(fill = NA)) +
+  labs(x = NULL, y = "Victorias ")
+
+img2 <- readPNG("imagenes/mountain.png")
+marca2 <- rasterGrob(img2, interpolate=F,height=unit(4, "cm"),hjust= -0.2, vjust=1.3)
+p8 + annotation_custom(marca2,xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf)
+
+```
+
+-----------------------
+
+<br>
+
+####  Etapas Crono
+
+##### 5.2.4. Mejores ciclistas contra el crono
+
+```{r}
+
+#Mejores ciclistas contra el crono  
+
+mejores_cronos <- tdf_stages %>%
+  filter(Winner!="Lance Armstrong[n 1]")%>%
+  group_by(Winner) %>%
+  mutate(etapas_ganas = n()) %>%
+  ungroup() %>%
+  count(Winner, Type, etapas_ganas, sort = TRUE) %>%
+  filter(Type == "Contrarreloj individual") %>%
+  filter(n>= 2)
+
+
+p9 <- ggplot(mejores_cronos, aes(reorder(Winner, n), n)) +
+  geom_col(fill = "#443a83") +
+  coord_flip() + theme(panel.background = element_rect(fill = NA)) +
+  labs(x = NULL, y = "Victorias ")
+
+img3 <- readPNG("imagenes/crono.png")
+marca3 <- rasterGrob(img3, interpolate=F,height=unit(4, "cm"),hjust= -0.2, vjust=1.15)
+p9 + annotation_custom(marca3,xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf)
+
+
+```
+
+-----------------------
+
+<br>
+
+
+
+
+### 5.3. Francia la gran dominadora
+
+#### 5.3.1. Paises ganadores del Tour
+
+```{r}
+
+#Grafica p10  ganadores por paises
+
+
+tdf_winners$code<-tolower(countrycode(tdf_winners$nationality,origin = 'country.name', destination = 'iso2c'))
+
+victorias_pais <- tdf_winners %>%
+  filter(winner_name!="Lance Armstrong")%>%
+  group_by(nationality,code) %>%
+  summarise(victorias = n())
+
+p10 <- ggplot(victorias_pais, aes(reorder(nationality, - victorias), victorias)) +
+  geom_col(aes(fill= victorias)) +
+  scale_fill_continuous(low="#9e9e9e",high="#282828") +
+  geom_flag(aes(nationality, victorias, country = code), y=-1 ,size = 10) + 
+  geom_text(aes(nationality,victorias, label = victorias), vjust = -0.8, size = 5) +
+  
+  annotate(geom = "curve", x = 1.5, y = 36, xend = 5, yend = 36, curvature = .3, arrow = arrow(length = unit(2, "mm"))) +
+  annotate(geom = "text", x = 5, y = 37, label = "La última victoria francesa fue en 1985.", hjust = "left") +
+  
+  lims(y=c(-2,38)) +
+theme(panel.background = element_rect(fill = NA)) +
+  labs(x = NULL) + theme(legend.position = "none") + 
+  theme(axis.ticks = element_line(linetype = "blank"),
+  axis.text.y = element_text(colour = "white")) +
+  labs(y = NULL)  + 
+  theme(axis.text.x = element_text(angle = 90))
+
+p10
+
+```
+<br>
+
+Como no podía ser de otra manera el dominio Francés seguido muy de lejos por los Belgas y Españoles, en la carrera es aplastante pero no debemos dejarnos llevar por las apariencias, si analizamos mejor los datos podemos decir que este dominio como tal no existe en la actualidad, muchas de las victorias son de la primera etapa mencionada anteriormente donde la mayoría de los corredores eran franceses, es mas, desde el año 1985 cuando Bernad Hinault conquisto el último Tour ningún otro Francés ha vuelto a ganar la carrera, es decir, han pasado 36 años desde la última victoria Francesa.
+
+<br>
+
+### 5.4. Los ciclistas alcanzan su madurez a los 30 años
+
+#### 5.4.1. Densidad de victorias por edad
+
+```{r}
+
+
+p11 <- ggplot(tdf_winners, aes(age)) +
+  geom_density(fill="#ede657", color="#ede657", alpha=0.9) +
+  theme_ipsum() + theme(plot.subtitle = element_text(family = "serif"),
+    plot.caption = element_text(family = "serif"),
+    axis.title = element_text(family = "serif"),
+    plot.title = element_text(family = "serif")) +labs(x = "Edad", y = "Densidad")
+  
+p11
+
+```
+<br>
+
+El objetivo de esta gráfica era ver donde se encuentra la edad de maduración o en otras palabras cuando un ciclista desarrolla todo su potencial, observando la gráfica podríamos decir que está entre los 28 a 30 años.
+
+<br>
+
+### 5.5. Trayectoria de ciclistas destacados {.tabset .tabset-pills} 
+
+#### Alberto Contador
+
+##### 5.5.1. Trayectoria de Alberto Contador en el Tour de Francia
+
+```{r}
+# Grafico p11 analisi de Alberto Contador
+
+carrera_corredor1 <- stage_data %>%
+  filter(rider == "Contador Alberto") %>% 
+  mutate(posicion = as.numeric(rank)) %>%
+  mutate(etapa = factor(as.numeric(str_remove(stage_results_id, "stage-")))) %>%
+  mutate(year = factor(year)) 
+  
+ p11 <- ggplot(carrera_corredor1, aes(year, etapa, fill = posicion)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  geom_text(aes(label = rank), size = 2, color = "white") +
+  theme(panel.background = element_rect(fill = NA),
+  legend.position = "none") +
+   labs(title = NULL, x = "Edición", y = "Etapa")
+
+plotly::ggplotly(p11, tooltip = c("y", "x", "fill"))
+
+```
+<br>
+
+##### 5.5.1. Victorias de Alberto Contador en el Tour de Francia
+
+```{r}
+
+#Tabla p15 victoria contador
+
+p15 <- tdf_stages %>% 
+  
+  rename(Etapa = "Stage",
+         Distancia = "Distance",
+         Fecha = "Date",
+         Origen = "Origin",
+         Destino = "Destination",
+         Tipo = "Type") %>%
+  filter(Winner == "Alberto Contador") %>% 
+  select(- Winner, - Winner_Country, - Etapa) 
+
+knitr::kable(p15)
+
+```
+
+
+-----------------------
+
+
+<br>
+
+
+#### Fabian Cancellara
+
+##### 5.5.2. Trayectoria de Fabian Cancellara en el Tour de Francia
+
+```{r}
+
+carrera_corredor2 <- stage_data %>%
+  filter(rider == "Cancellara Fabian") %>% 
+  mutate(posicion = as.numeric(rank)) %>%
+  mutate(etapa = factor(as.numeric(str_remove(stage_results_id, "stage-")))) %>%
+  mutate(year = factor(year)) 
+
+p12 <- ggplot(carrera_corredor2, aes(year, etapa, fill = posicion)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  geom_text(aes(label = rank), size = 2, color = "white") +
+  theme(panel.background = element_rect(fill = NA),
+        legend.position = "none") +
+  labs(title = NULL, x = "Edición", y = "Etapa")
+
+plotly::ggplotly(p12, tooltip = c("y", "x", "fill"))
+
+```
+<br>
+
+##### 5.5.1. Victorias de Fabian Cancellara en el Tour de Francia
+
+```{r}
+
+#Tabla p16 victoris Cancellara
+
+p16 <- tdf_stages %>% 
+  
+  rename(Etapa = "Stage",
+         Distancia = "Distance",
+         Fecha = "Date",
+         Origen = "Origin",
+         Destino = "Destination",
+         Tipo = "Type") %>%
+  filter(Winner == "Fabian Cancellara") %>% 
+  select(- Winner, - Winner_Country, - Etapa) 
+
+knitr::kable(p16)
+
+```
+
+
+-----------------------
+
+<br>
+
+#### Óscar Freire
+
+##### 5.5.1. Trayectoria de Óscar Freire en el Tour de Francia
+
+```{r}
+
+# Grafico p13 analisi de Oscar Freire
+
+carrera_corredor3 <- stage_data %>%
+  filter(rider == "Freire Óscar") %>% 
+  mutate(posicion = as.numeric(rank)) %>%
+  mutate(etapa = factor(as.numeric(str_remove(stage_results_id, "stage-")))) %>%
+  mutate(year = factor(year)) 
+
+p13 <- ggplot(carrera_corredor3, aes(year, etapa, fill = posicion)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  geom_text(aes(label = rank), size = 2, color = "white") +
+  theme(panel.background = element_rect(fill = NA),
+  legend.position = "none") +
+  labs(title = NULL, x = "Edición", y = "Etapa")
+
+plotly::ggplotly(p13, tooltip = c("y", "x", "fill"))
+
+
+```
+
+<br>
+
+##### 5.5.3. Victorias de Óscar Freire en el Tour de Francia
+
+```{r}
+
+#Tabla p17 victoria Oscar Freire
+
+p17 <- tdf_stages %>% 
+  
+  rename(Etapa = "Stage",
+         Distancia = "Distance",
+         Fecha = "Date",
+         Origen = "Origin",
+         Destino = "Destination",
+         Tipo = "Type") %>%
+  filter(Winner == "Óscar Freire") %>% 
+  select(- Winner, - Winner_Country, - Etapa) 
+
+knitr::kable(p17)
+
+```
+
+
+-----------------------
+
+<br>
+
+#### Tom Boonem
+
+##### 5.5.1. Trayectoria de Tom Boonem en el Tour de Francia
+
+```{r}
+
+# Grafico p14 analisi de Tom Boonem
+
+carrera_corredor <- stage_data %>%
+  filter(rider == "Boonen Tom") %>% 
+  mutate(posicion = as.numeric(rank)) %>%
+  mutate(etapa = factor(as.numeric(str_remove(stage_results_id, "stage-")))) %>%
+  mutate(year = factor(year)) 
+
+p14 <- ggplot(carrera_corredor, aes(year, etapa, fill = posicion)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  geom_text(aes(label = rank), size = 2, color = "white") +
+  theme(panel.background = element_rect(fill = NA),
+        legend.position = "none") +
+  labs(title = NULL, x = "Edición", y = "Etapa")
+
+plotly::ggplotly(p14, tooltip = c("y", "x", "fill"))
+
+
+```
+
+<br>
+
+##### 5.5.4. Victorias de Tom Boonem en el Tour de Francia
+
+```{r}
+
+#Tabla p18 victoria Tom Boonem
+
+p18 <- tdf_stages %>% 
+  
+  rename(Etapa = "Stage",
+         Distancia = "Distance",
+         Fecha = "Date",
+         Origen = "Origin",
+         Destino = "Destination",
+         Tipo = "Type") %>%
+  filter(Winner == "Tom Boonen") %>% 
+  select(- Winner, - Winner_Country, - Etapa) 
+
+knitr::kable(p18)
+
+```
+
+-----------------------
+
+<br>
+
+## 6.DATOS CURIOSOS
+
+Para finalizar el trabajo en este último apartado me gustaría realizar una serie de tablas con información sobre equipos, corredores y ciudades que forman parte habitual de la carrera.
+
+<br>
+
+Me gustaría aclarar que realizar una clasificación por equipos resulta un poco complicada, ya que en el ciclismo es muy habitual el cambio de nombres de equipos dependiendo de su patrocinador, pero el equipo sigue siendo el mismo pues lo importante es la estructura, un ejemplo de esto sería el Banesto, actualmente conocido como Movistar team, o el Team Sky que ha pasado a llamarse Ineos. Por lo tanto, los datos que se observan en la primera tabla pueden no ser exactos del todo pero mi finalidad en esta ha sido remarcar aquellos equipos que marcaron una época y son muy recordados por los aficionados.
+
+### 6.1.  El Team Sky el equipo con más victorias
+
+#### 6.1.1. Equipos con más victorias del tour
+
+```{r}
+
+equipo_victoria <- tdf_winners %>%
+  group_by(winner_team) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  filter(winner_team!= "France") %>%
+  filter(winner_team!="Italy") %>%
+  filter(winner_team!="Belgium") %>%
+  filter(winner_team!="U.S. Postal Service") %>%
+  filter(winner_team!="La Sportive") %>%
+  filter(winner_team!="Switzerland") %>%
+  filter(winner_team!="Peugeot–BP–Michelin") %>%
+  filter(winner_team!="Renault–Elf–Gitane") %>%
+  filter(winner_team!="Alcyon–Dunlop") %>%
+  filter(winner_team!="Peugeot–Wolber") %>%
+  filter(winner_team!="Automoto–Hutchinson") %>%
+  filter(winner_team!="Alcyon–Dunlop") %>%
+  filter(n>=2)%>%
+  arrange(desc(n))
+
+
+
+fotos_equipo <- c("imagenes/sky.png", "imagenes/banesto.png", "imagenes/molteni.png", "imagenes/astana.png", "imagenes/discovery.png", "imagenes/claire.png", "imagenes/renault.png", "imagenes/telekom.png")
+
+
+fotos_pais <- c("imagenes/uk.png", "imagenes/espanya.png", "imagenes/italia.png", "imagenes/caza.png", "imagenes/usa.png", "imagenes/francia.png", "imagenes/francia.png", "imagenes/alemania.png")
+
+
+equipo_victorias_fotos <- equipo_victoria %>%
+  group_by(winner_team) %>%
+  add_column(fotos_equipo) %>%
+  add_column(fotos_pais) %>%
+  ungroup() %>%
+  rename(Equipo = "winner_team" , 
+         Tours = "n" , 
+         Maillot = "fotos_equipo" , 
+         Pais = "fotos_pais")
+
+library(gt)
+
+equipo_victorias_fotos %>% gt() %>% 
+  gt::text_transform(locations = cells_body(columns = c(Maillot)),
+                     fn = function(x) {gt::web_image(x, height = 70 )}) %>%
+  gt::text_transform(locations = cells_body(columns = c(Pais)),
+                     fn = function(x) {gt::web_image(x, height = 35 )}) 
+
+```
+
+
+
+<br>
+
+### 6.2. Ciclistas más joven y mayores 
+
+En esta ocasión también me ha gustado separar entre corredores de un ciclismo actual más moderno a aquellos primeros ciclistas, no por desmerecer las actuaciones de Henri Cornet o Firmin Lambot pero eran otros tiempos y creo que tampoco sería justo no reconocer el trabajo de Bernal o Cadel Evans. 
+
+<br>
+
+::: {.column width="47%"}
+
+
+```{r}
+
+#Grafica p20 Ganador mas Joven del tour de francia
+
+nacionalidad1 <- ("imagenes/francia.png")
+equipo1 <- ("imagenes/conte.png")
+
+
+ganador_joven <- tdf_winners %>%
+  slice_min(age, n=1) %>%
+  mutate(year= year(start_date)) %>%
+  select(edition, year, winner_name, age) %>%
+  add_column(nacionalidad1) %>%
+  add_column(equipo1) %>%
+  rename(Edicion = "edition" ,
+         Año = "year" ,
+         Nombre = "winner_name" ,
+         Nacionalidad = "nacionalidad1" ,
+         Edad = "age" ,
+         Equipo = "equipo1" )
+  
+
+ganador_joven %>% gt() %>% 
+  gt::tab_header(title = md("**Corredor más joven en ganar el Tour**"), subtitle = md("Ciclismo histórico")) %>%
+  gt::tab_options(heading.background.color = "#e2282e") %>%
+  gt::text_transform(locations = cells_body(columns = c(Nacionalidad)),
+                     fn = function(x) {gt::web_image(x, height = 35 )}) %>%
+  gt::text_transform(locations = cells_body(columns = c(Equipo)),
+                     fn = function(x) {gt::web_image(x, height = 70 )})
+
+```
+
+:::
+
+::: {.column width="1%"}
+<!-- an empty Div (with a white space) haciendo de separador -->
+:::
+
+::: {.column width="47%"}
+
+
+```{r}
+
+#Grafica p21 Ganador mas mayor tour de Francia
+
+
+nacionalidad1 <- ("imagenes/belgium.png")
+equipo1 <- ("imagenes/peugeot.png")
+
+
+ganador_mayor <- tdf_winners %>%
+  slice_max(age, n=1) %>%
+  mutate(year= year(start_date)) %>%
+  select(edition, year, winner_name, age) %>%
+  add_column(nacionalidad1) %>%
+  add_column(equipo1) %>%
+  rename(Edicion = "edition" ,
+         Año = "year" ,
+         Nombre = "winner_name" ,
+         Nacionalidad = "nacionalidad1" ,
+         Edad = "age" ,
+         Equipo = "equipo1" )
+
+ganador_mayor %>% gt() %>% 
+  gt::tab_header(title = md("**Corredor más mayor en ganar el Tour**"), subtitle = md("Ciclismo histórico")) %>%
+  gt::tab_options(heading.background.color = "#e2282e") %>%
+  gt::text_transform(locations = cells_body(columns = c(Nacionalidad)),
+                     fn = function(x) {gt::web_image(x, height = 35 )}) %>%
+  gt::text_transform(locations = cells_body(columns = c(Equipo)),
+                     fn = function(x) {gt::web_image(x, height = 70 )})
+
+
+```
+
+:::
+
+<br>
+
+::: {.column width="47%"}
+
+
+```{r}
+
+
+#Grafica p22 Ganador mas Joven del tour de francia moderno
+
+nacionalidad1 <- ("imagenes/colombia.png")
+equipo1 <- ("imagenes/ineos.png")
+
+
+ganador_joven_actual <- tdf_winners %>%
+  filter(edition >= 57) %>%
+  filter(winner_name !="Laurent Fignon") %>%
+  slice_min(age, n=1) %>%
+  mutate(year= year(start_date)) %>%
+  select(edition, year, winner_name, age) %>%
+  add_column(nacionalidad1) %>%
+  add_column(equipo1) %>%
+  rename(Edicion = "edition" ,
+         Año = "year" ,
+         Nombre = "winner_name" ,
+         Nacionalidad = "nacionalidad1" ,
+         Edad = "age" ,
+         Equipo = "equipo1" )
+
+
+ganador_joven_actual %>% gt() %>% 
+  gt::tab_header(title = md("**Corredor más joven en ganar el Tour**"), subtitle = md("Ciclismo moderno")) %>%
+  gt::tab_options(heading.background.color = "#e2282e") %>%
+  gt::text_transform(locations = cells_body(columns = c(Nacionalidad)),
+                     fn = function(x) {gt::web_image(x, height = 35 )}) %>%
+  gt::text_transform(locations = cells_body(columns = c(Equipo)),
+                     fn = function(x) {gt::web_image(x, height = 70 )})
+
+
+```
+
+:::
+
+::: {.column width="1%"}
+<!-- an empty Div (with a white space) haciendo de separador -->
+:::
+
+::: {.column width="47%"}
+
+```{r}
+
+#Grafica p23 Ganador mas mayor tour de Francia moderno
+
+nacionalidad1 <- ("imagenes/australia.png")
+equipo1 <- ("imagenes/bmc.png")
+
+
+
+ganador_mayor_actual <- tdf_winners %>%
+  filter(edition >= 57) %>%
+  slice_max(age, n=1) %>%
+  mutate(year= year(start_date)) %>%
+  select(edition, year, winner_name, age) %>%
+  add_column(nacionalidad1) %>%
+  add_column(equipo1) %>%
+  rename(Edicion = "edition" ,
+         Año = "year" ,
+         Nombre = "winner_name" ,
+         Nacionalidad = "nacionalidad1" ,
+         Edad = "age" ,
+         Equipo = "equipo1" )
+
+
+ganador_mayor_actual %>% gt() %>% 
+  gt::tab_header(title = md("**Corredor más mayor en ganar el Tour**"), subtitle = md("Ciclismo moderno")) %>%
+  gt::tab_options(heading.background.color = "#e2282e") %>%
+  gt::text_transform(locations = cells_body(columns = c(Nacionalidad)),
+                     fn = function(x) {gt::web_image(x, height = 35 )}) %>%
+  gt::text_transform(locations = cells_body(columns = c(Equipo)),
+                     fn = function(x) {gt::web_image(x, height = 70 )})
+
+```
+
+:::
+
+
+<br>
+
+### 6.3. París nunca falta a la cita
+
+
+::: {.column width="47%"}
+
+```{r}
+
+# tabla ciudadades salidas
+
+
+etapas_espanol <- tdf_stages %>%
+  rename(etapa = "Stage" ,
+         fecha = "Date" ,
+         distancia = "Distance" ,
+         origen = "Origin" ,
+         final = "Destination" ,
+         tipo = "Type" ,
+         ganador = "Winner" ,
+         nacionalidad = "Winner_Country" ,) %>%
+  select(etapa, fecha, distancia, origen, final, tipo, ganador, nacionalidad)
+
+
+
+tabla_origen <- etapas_espanol %>%
+  group_by(origen) %>%
+  summarise(salidas = n()) %>%
+  slice_max(salidas, n = 10) %>%
+  rename(ciudad = "origen")
+
+
+
+tabla_origen %>% gt() %>% 
+  gt::tab_header(title = md("**Ciudades que más han sido inicio de etapa**"), subtitle = md("")) %>%
+  gt::tab_options(heading.background.color = "#e0e0e0", column_labels.font.weight = "bold", column_labels.background.color = "#eeeeee")
+
+```
+
+
+:::
+
+::: {.column width="1%"}
+<!-- an empty Div (with a white space) haciendo de separador -->
+:::
+
+::: {.column width="47%"}
+
+```{r}
+
+#tablas ciudad finales
+
+
+etapas_espanol <- tdf_stages %>%
+  rename(etapa = "Stage" ,
+         fecha = "Date" ,
+         distancia = "Distance" ,
+         origen = "Origin" ,
+         final = "Destination" ,
+         tipo = "Type" ,
+         ganador = "Winner" ,
+         nacionalidad = "Winner_Country" ,) %>%
+  select(etapa, fecha, distancia, origen, final, tipo, ganador, nacionalidad)
+
+
+
+tabla_final <- etapas_espanol %>%
+  group_by(final) %>%
+  summarise(finales = n())%>%
+  slice_max(finales, n = 10)%>%
+  rename(ciudad = "final" ) %>%
+  filter(ciudad != "Caen")
+
+
+tabla_final %>% gt() %>% 
+  gt::tab_header(title = md("**Ciudades que más han sido final de etapa**"), subtitle = md("")) %>%
+  gt::tab_options(heading.background.color = "#e0e0e0", column_labels.font.weight = "bold", column_labels.background.color = "#eeeeee")
+
+```
+
+
+:::
+
+<br>
+
+
+## 7. Conclusiones
+
+Al tratarse del trabajo individual y ya haber realizado anteriormente el grupal he podido poner en practica muchas de las cosas que he aprendido en este, por una parte me ha permitido ser mucho más ágil y rápido a la hora de elaborar gráficas, manipular datos con dplyr, entre otros aspectos y por otro lado me ha servido para afianzar conceptos como la creación de tablas.
+A diferencia del anterior trabajo esta vez me he basado en 3 dataframes sobre el tour de Francia que estaban muy completos, esto me ha permitido agilizar el proceso de trabajo con los datos y ha sido de muy gran ayuda porque en algunas ocasiones me ha permitido inspirarme en trabajos ya realizados por la comunidad R, siempre he intentado añadir un plus a esos gráficos aportando mi granito de arena, así que me siento muy contento con el resultado obtenido.
+
+<br>
+
+En cuanto al tema me ha resultado muy ameno ya que me he entretenido mucho observando datos de corredores, es cierto que muchas de las cosas ya las conocía, pero algunas otras cosas no y por lo tanto estoy satisfecho de haber elegido este tema. Como conclusión a este poco tengo que añadir o valorar a raíz de los resultados obtenidos, solo como valoración final me gustaría mencionar que ojalá en unos años pueda realizar el mismo trabajo, pero hablando de ciclismo femenino ya que este está empezando a explotar y promete mucho, pero es una pena que a día de hoy me haya resultado muy difícil sino imposible encontrar datos o información sobre este. Esto es todo y espero que os haya gustado y quién sabe si a partir de ahora os aficionáis al ciclismo sino lo estabais ya.
+
+<br>
+
+## 8. Referencias
+
+En la mayoría de ocasiones todos los comentarios realizados al respecto han sido por mi propia experiencia, pero en alguna ocasión he buscado información en algún blog o página oficial como por ejemplo:
+
+- <a href="https://www.procyclingstats.com">www.procyclingstats.com</a>
+
+- <a href="https://www.letour.fr/es/">www.letour.fr/es/</a>
+
+- <a href="https://www.welovecycling.com/es/">www.welovecycling.com/es/</a>
+
+- <a href="https://www.ciclismoafondo.es/">www.ciclismoafondo.es/</a>
+
+Para la realización del trabajo he utilizados los dataframes del usuario [alastairrushworth](https://github.com/alastairrushworth/tdf), que ha sido el encargado de recopilar los datos para el [tidytuesday](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-04-07/readme.md) del 2020-04-07 dedicado al Tour de Francia.
+
+En la realización de la tabla de [máximos ganadores](https://bjnnowak.netlify.app/2021/10/04/r-beautiful-tables-with-gt-and-gtextras/) he utilizado el blog del usuario Benjamin Nowak sobre las tablas {gt} y {gtExtras}.
+
+Además, a la hora de realizar algunos gráficos me he inspirado en algunos ya existentes como por ejemplo los de [André Waage Rivenæs](https://www.andrewaage.com/post/analyzing-tour-de-france-data/), o los de los usuarios de twitter [@ariamsita](https://twitter.com/ariamsita) y [@Jake_Lawlor1](https://twitter.com/Jake_Lawlor1)
+
+Y como no podía ser de otra forma la página [The R Graph Gallery](https://www.r-graph-gallery.com/index.html) ha sido una vez más una gran fuente de inspiración 
+
+Por último, También me he consultado algunos aspectos de los trabajos grupales de este año. Estos últimos los podemos encontrar [aqui](https://perezp44.github.io/intro-ds-21-22-web/07-trabajos.html) 
+
+----------------
+
+<br>
